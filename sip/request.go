@@ -3,12 +3,10 @@
 package sip
 
 import (
-  //"bufio"
+  "bufio"
   "io"
-  "net/http"
+  "fmt"
 )
-
-type Header http.Header
 
 // SIP request parsing errors.
 type ProtocolError struct {
@@ -30,15 +28,13 @@ type Request struct {
   Method string // eg. INVITE
   Recipient string // eg. user2@server2.com
   Initiator string // eg. user1@server1.com
-  Proto string // eg. SIP/2.0
-  ProtoMajor int
-  ProtoMinor int
   // Via: SIP/2.0/UDP pc.server.com;branch=1234567890asdf Max-Forwards: 70
   Branch string
   Transport string // eg. UDP
   Tag int64
   // Call-ID: zxcvb12345@pc.server1.com
   CallID string
+  MaxForwards string
   Header Header
 }
 
@@ -55,22 +51,19 @@ func (r *Request) Write(w io.Writer) error {
 }
 
 func (req *Request) write(w io.Writer, extraHeaders Header) error {
-/*  var bw *bufio.Writer
+  var bw *bufio.Writer
+
   if _, ok := w.(io.ByteWriter); !ok {
     bw = bufio.NewWriter(w)
     w = bw
   }
 
-  if req.URI == "" {
-    return errors.New("sip: Request.Write on Request with no URI set")
-  }
+  rversion := "2.0"
 
-  rversion := valueOrDefault(r.Version, "2.0")
+  fmt.Fprintf(w, "%s sip:%s SIP/%s", valueOrDefault(req.Method, "INVITE"), req.Recipient, rversion)
 
-  fmt.Fprintf(w, "%s %s SIP/%s", valueOrDefault(req.Method, "INVITE"), req.URI, rversion)
+  fmt.Fprintf(w, "Via: SIP/%s/%s %s;branch=%s Max-Forwards: %d", rversion, valueOrDefault(req.Transport, "UDP"), valueOrDefault(req.MaxForwards, "70"))
 
-  fmt.Fprintf(w, "Via: SIP/%s/%s %s;branch=%s Max-Forwards: %d", rversion, valueOrDefault(r.Transport, "UDP"), valueOrDefault(req.MaxForwards, 70))
-*/
   return nil
 }
 
@@ -98,12 +91,10 @@ func NewRequest(method, rec string, ini string, branch string, tag int64, callid
           Method:     method,
           Recipient:  rec,
           Initiator:  ini,
-          Proto:      "SIP/2.0",
-          ProtoMajor: 1,
-          ProtoMinor: 1,
           Branch:     branch,
           Tag:        tag,
           Transport:  trans,
+          CallID:     callid,
           Header:     make(Header),
   }
 
