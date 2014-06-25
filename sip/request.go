@@ -5,7 +5,6 @@ package sip
 import (
   "bufio"
   "io"
-  "fmt"
 )
 
 // SIP request parsing errors.
@@ -24,17 +23,11 @@ var (
 )
 
 type Request struct {
-  // INVITE sip:user2@server2.com SIP/2.0
-  Method string // eg. INVITE
-  Recipient string // eg. user2@server2.com
-  Initiator string // eg. user1@server1.com
-  // Via: SIP/2.0/UDP pc.server.com;branch=1234567890asdf Max-Forwards: 70
+  Method string            // eg. INVITE
   Branch string
-  Transport string // eg. UDP
-  Tag int64
-  // Call-ID: zxcvb12345@pc.server1.com
-  CallID string
-  MaxForwards string
+  Tag    int64
+  CallID string            // zxcvb12345
+  Peers  Peers
   Header Header
 }
 
@@ -58,43 +51,35 @@ func (req *Request) write(w io.Writer, extraHeaders Header) error {
     w = bw
   }
 
-  rversion := "2.0"
-
-  fmt.Fprintf(w, "%s sip:%s SIP/%s", valueOrDefault(req.Method, "INVITE"), req.Recipient, rversion)
-
-  fmt.Fprintf(w, "Via: SIP/%s/%s %s;branch=%s Max-Forwards: %d", rversion, valueOrDefault(req.Transport, "UDP"), valueOrDefault(req.MaxForwards, "70"))
-
   return nil
 }
 
+func (req *Request) SetTo(toURI Endpoint) error {
+  req.Header["To"] = toURI
+  return nil
+}
 
-func NewRequest(method, rec string, ini string, branch string, tag int64, callid string, trans string) (*Request, error) {
+func (req *Request) GetTo() (Endpoint, error) {
+  return req.Header["To"], nil
+}
 
-  // ensure the critical fields are passed, otherwise return error
-  if rec == "" {
-    return nil, RecipientMissing
-  }
+func (req *Request) SetFrom(fromURI Endpoint) error {
+  req.Header["From"] = fromURI
+  return nil
+}
 
-  if ini == "" {
-    return nil, InitiatorMissing
-  }
+func (req *Request) GetFrom() (Endpoint, error) {
+  return req.Header["From"], nil
+}
 
-  if branch == "" {
-    return nil, ToBranchMissing
-  }
-
-  if callid == "" {
-    return nil, CallIDMissing
-  }
+func NewRequest(method, branch string, tag int64, callid string) (*Request, error) {
 
   req := &Request{
           Method:     method,
-          Recipient:  rec,
-          Initiator:  ini,
           Branch:     branch,
           Tag:        tag,
-          Transport:  trans,
           CallID:     callid,
+          Peers:      make(Peers),
           Header:     make(Header),
   }
 
